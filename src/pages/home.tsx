@@ -102,6 +102,7 @@ export default function Home() {
       <CsvUploadModal 
         open={showCsvUploadModal}
         onOpenChange={setShowCsvUploadModal}
+        onConversationCreate={setSelectedConversationId}
       />
 
       <LoadingOverlay 

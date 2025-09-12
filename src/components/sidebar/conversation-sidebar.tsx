@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Conversation } from "@shared/schema";
 
 interface ConversationSidebarProps {
-  onConversationSelect: (id: number) => void;
+  onConversationSelect: (id: number | null) => void;
   onDataSourceSelect: (id: number) => void;
   onAddDataSource: () => void;
   selectedConversationId: number | null;

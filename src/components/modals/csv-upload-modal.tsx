@@ -11,9 +11,10 @@ import type { CSVUpload } from "@/types/shared";
 interface CsvUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConversationCreate?: (id: number) => void;
 }
 
-export default function CsvUploadModal({ open, onOpenChange }: CsvUploadModalProps) {
+export default function CsvUploadModal({ open, onOpenChange, onConversationCreate }: CsvUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -34,6 +35,10 @@ export default function CsvUploadModal({ open, onOpenChange }: CsvUploadModalPro
         title: "CSV uploaded successfully",
         description: `Conversation #${res.conversation_id} created. Rows: ${res.row_count}`,
       });
+      // Automatically select the newly created conversation
+      if (onConversationCreate) {
+        onConversationCreate(res.conversation_id);
+      }
       onOpenChange(false);
       resetForm();
     },

@@ -53,16 +53,14 @@ describe('Chat flows', () => {
       { matcher: /\/api\/csv-upload$/, method: 'POST', response: { id: 10, userId: 1, filename: 'data.csv', originalName: 'data.csv', size: 100, createdAt: new Date().toISOString(), data_source_id: 1, conversation_id: 42, columns: ['date','value'], row_count: 5, message: 'uploaded' } },
       // After upload, conversations GET shows list (not required for flow)
       { matcher: /\/api\/conversations$/, response: [] },
-      // FE creates a conversation on first send
-      { matcher: /\/api\/conversations$/, method: 'POST', response: { id: 99, userId: 1, title: 'Summarise the uploaded file', createdAt: new Date().toISOString() } },
-      // Messages GET for conversation 99
-      { matcher: /\/api\/conversations\/99\/messages$/, response: [] },
+      // Messages GET for conversation 42 (selected after CSV upload)
+      { matcher: /\/api\/conversations\/42\/messages$/, response: [] },
       // Send natural language chat -> backend returns assistant with sqlQuery and sqlResults
-      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 100, conversationId: 99, role: 'assistant', content: 'Here is a summary and analysis', sqlQuery: 'SELECT * FROM t', sqlResults: [{ date: '2024-01-01', value: 10 }, { date: '2024-01-02', value: 12 }], createdAt: new Date().toISOString() } },
+      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 100, conversationId: 42, role: 'assistant', content: 'Here is a summary and analysis', sqlQuery: 'SELECT * FROM t', sqlResults: [{ date: '2024-01-01', value: 10 }, { date: '2024-01-02', value: 12 }], createdAt: new Date().toISOString() } },
       // Ask to create XmR chart -> assistant confirms details
-      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 101, conversationId: 99, role: 'assistant', content: 'Confirm: dates 2024-01-01..2024-01-02, values from column value?', createdAt: new Date().toISOString() } },
+      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 101, conversationId: 42, role: 'assistant', content: 'Confirm: dates 2024-01-01..2024-01-02, values from column value?', createdAt: new Date().toISOString() } },
       // User confirms -> assistant returns chartData
-      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 102, conversationId: 99, role: 'assistant', content: 'XmR chart created', chartData: { type: 'xmr', data: [{ x: '2024-01-01', y: 10 }, { x: '2024-01-02', y: 12 }], insights: { processStable: true, outOfControlPoints: [], averageValue: 11, averageRange: 2 } }, createdAt: new Date().toISOString() } },
+      { matcher: /\/api\/chat$/, method: 'POST', response: { id: 102, conversationId: 42, role: 'assistant', content: 'XmR chart created', chartData: { type: 'xmr', data: [{ x: '2024-01-01', y: 10 }, { x: '2024-01-02', y: 12 }], insights: { processStable: true, outOfControlPoints: [], averageValue: 11, averageRange: 2 } }, createdAt: new Date().toISOString() } },
     ]);
 
     renderApp();
