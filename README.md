@@ -26,7 +26,7 @@ This is the standalone React frontend for the XMR Data Insights analytics platfo
 
 ### Prerequisites
 - Node.js 18+
-- A backend server running on port 5000 (or update the proxy in vite.config.ts)
+- A backend server running on port 8000 (or update the proxy in vite.config.ts)
 
 ### Installation
 
@@ -42,7 +42,7 @@ The frontend will be available at `http://localhost:3000`
 
 ### Backend Integration
 
-This frontend expects a backend API running on `http://localhost:5000` with these endpoints:
+This frontend expects a backend API running on `http://localhost:8000` with these endpoints:
 
 - `GET /api/conversations` - List conversations
 - `POST /api/conversations` - Create conversation
@@ -127,7 +127,7 @@ The built files will be in the `dist/` directory.
 Create a `.env.local` file for development:
 
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=http://localhost:8000
 ```
 
 ## Development Scripts
