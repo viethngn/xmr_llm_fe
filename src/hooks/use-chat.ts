@@ -30,11 +30,11 @@ export function useChat(conversationId: number | null) {
       const payload: InsertMessage = { conversationId: data.conversationId, role: 'user', content: data.content };
       return post<Message>('/chat', payload);
     },
-    onSuccess: (newMessage) => {
-      // Update the messages cache
+    onSuccess: (assistantMessage) => {
+      // Add the assistant's response to the cache
       queryClient.setQueryData(
         ['/api/conversations', conversationId, 'messages'],
-        (oldMessages: Message[] = []) => [...oldMessages, newMessage]
+        (oldMessages: Message[] = []) => [...oldMessages, assistantMessage]
       );
       setError(null);
     },
@@ -45,6 +45,21 @@ export function useChat(conversationId: number | null) {
 
   const sendMessage = async (data: { content: string; conversationId: number }) => {
     setError(null);
+    
+    // Add user message to cache immediately for better UX
+    const userMessage: Message = {
+      id: Date.now(), // Temporary ID
+      conversationId: data.conversationId,
+      role: 'user',
+      content: data.content,
+      createdAt: new Date().toISOString()
+    };
+    
+    queryClient.setQueryData(
+      ['/api/conversations', conversationId, 'messages'],
+      (oldMessages: Message[] = []) => [...oldMessages, userMessage]
+    );
+    
     return sendMessageMutation.mutateAsync(data);
   };
 
