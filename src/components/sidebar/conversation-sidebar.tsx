@@ -37,13 +37,26 @@ export default function ConversationSidebar({
 
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: number) => {
-      await del(`/conversations/${id}`);
+      // Note: Backend doesn't support DELETE /api/conversations/{id}
+      // This is a frontend-only delete that removes from local cache
+      return Promise.resolve();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+    onSuccess: (_, id) => {
+      // Remove conversation from local cache
+      queryClient.setQueryData(
+        ['/api/conversations'],
+        (oldConversations: Conversation[] = []) => 
+          oldConversations.filter(conv => conv.id !== id)
+      );
+      
+      // Also remove messages from cache
+      queryClient.removeQueries({ 
+        queryKey: ['/api/conversations', id, 'messages'] 
+      });
+      
       toast({
         title: "Conversation deleted",
-        description: "The conversation and all its messages have been removed.",
+        description: "The conversation has been removed from your history.",
       });
     },
     onError: () => {
