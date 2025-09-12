@@ -118,6 +118,8 @@ export default function MessageInput({
             onClick={onSend}
             disabled={disabled || !value.trim()}
             className="p-3"
+            aria-label="Send"
+            title="Send"
           >
             <Send className="w-4 h-4" />
           </Button>

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DataSourcesPanel from "./data-sources-panel";
 import { Plus, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { get, del } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation } from "@shared/schema";
 
@@ -31,14 +31,13 @@ export default function ConversationSidebar({
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ['/api/conversations'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/conversations');
-      return response.json() as Promise<Conversation[]>;
+      return get<Conversation[]>('/conversations');
     }
   });
 
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/conversations/${id}`);
+      await del(`/conversations/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });

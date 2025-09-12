@@ -6,9 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { post } from "@/lib/api";
 import { Database } from "lucide-react";
-import type { InsertDataSource } from "@shared/schema";
+import type { InsertDataSource } from "@/types/shared";
 
 interface DatabaseModalProps {
   open: boolean;
@@ -28,8 +28,7 @@ export default function DatabaseModal({ open, onOpenChange }: DatabaseModalProps
 
   const createDataSourceMutation = useMutation({
     mutationFn: async (data: InsertDataSource) => {
-      const response = await apiRequest('POST', '/api/data-sources', data);
-      return response.json();
+      return post('/data-sources', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });

@@ -4,7 +4,7 @@ import DataTable from "@/components/ui/data-table";
 import XmRChart from "@/components/charts/xmr-chart";
 import { Copy, Download, Search, BarChart3, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Message } from "@shared/schema";
+import type { Message } from "@/types/shared";
 
 interface MessageListProps {
   messages: Message[];
@@ -114,10 +114,10 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
               )}
 
               {/* Data Table */}
-              {message.role === 'assistant' && message.queryResults && Array.isArray(message.queryResults) && message.queryResults.length > 0 && (
+              {message.role === 'assistant' && message.sqlResults && Array.isArray(message.sqlResults) && message.sqlResults.length > 0 && (
                 <Card className="p-4 border-slate-200">
                   <DataTable 
-                    data={message.queryResults} 
+                    data={message.sqlResults as any[]} 
                     maxRows={10}
                   />
                   
@@ -133,7 +133,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleExportData(message.queryResults as any[], 'query-results.csv')}
+                      onClick={() => handleExportData(message.sqlResults as any[], 'query-results.csv')}
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Export CSV
@@ -149,9 +149,10 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                   </div>
 
                   {/* Execution time display */}
-                  {message.executionTime && (
+                  {/** Optional: executionTime not guaranteed */}
+                  {false && (message as any).executionTime && (
                     <div className="mt-3 text-xs text-slate-500">
-                      Query executed in {message.executionTime}s • {message.queryResults.length} rows returned
+                      Query executed in {(message as any).executionTime}s • {(message as any).sqlResults.length} rows returned
                     </div>
                   )}
                 </Card>

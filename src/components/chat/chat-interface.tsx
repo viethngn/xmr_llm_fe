@@ -64,8 +64,7 @@ export default function ChatInterface({
     if (!currentConversationId) {
       try {
         const newConversation = await createConversation({
-          title: inputMessage.slice(0, 50) + (inputMessage.length > 50 ? "..." : ""),
-          dataSourceId
+          title: inputMessage.slice(0, 50) + (inputMessage.length > 50 ? "..." : "")
         });
         currentConversationId = newConversation.id;
         onConversationCreate(currentConversationId);
@@ -77,9 +76,8 @@ export default function ChatInterface({
 
     try {
       await sendMessage({
-        message: inputMessage,
-        conversationId: currentConversationId,
-        dataSourceId
+        content: inputMessage,
+        conversationId: currentConversationId
       });
       setInputMessage("");
     } catch (error) {
@@ -92,8 +90,7 @@ export default function ChatInterface({
 
     try {
       const newConversation = await createConversation({
-        title: "New Query",
-        dataSourceId
+        title: "New Query"
       });
       onConversationCreate(newConversation.id);
     } catch (error) {

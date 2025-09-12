@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { useDataSources } from "@/hooks/use-data-sources";
 import { Database, FileSpreadsheet, Plus, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { del } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface DataSourcesPanelProps {
@@ -23,7 +23,7 @@ export default function DataSourcesPanel({
 
   const deleteDataSourceMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/data-sources/${id}`);
+      await del(`/data-sources/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });

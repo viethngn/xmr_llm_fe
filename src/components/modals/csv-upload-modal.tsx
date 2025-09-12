@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { csvApi } from "@/lib/api";
+import { upload } from "@/lib/api";
+import type { CSVUpload } from "@/types/shared";
 
 interface CsvUploadModalProps {
   open: boolean;
@@ -22,18 +23,16 @@ export default function CsvUploadModal({ open, onOpenChange }: CsvUploadModalPro
 
   const uploadCsvMutation = useMutation({
     mutationFn: async (file: File) => {
-      const response = await csvApi.upload(file);
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Upload failed');
-      }
-      return response.json();
+      const fd = new FormData();
+      fd.append('file', file);
+      return upload<CSVUpload>('/csv-upload', fd);
     },
-    onSuccess: () => {
+    onSuccess: (res: CSVUpload) => {
       queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       toast({
         title: "CSV uploaded successfully",
-        description: "Your CSV data is now available for queries.",
+        description: `Conversation #${res.conversation_id} created. Rows: ${res.row_count}`,
       });
       onOpenChange(false);
       resetForm();

@@ -8,54 +8,80 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 
 interface XmRChartProps {
-  data: {
-    chartData: Array<{
-      label: string;
-      individual: number;
-      movingRange: number | null;
-      centralLine: number;
-      UCL: number;
-      LCL: number;
-      isIndividualSignal: boolean;
-      isRangeSignal: boolean;
-    }>;
-    statistics: {
-      centralLine: number;
-      averageMovingRange: number;
-      UCL_Individual: number;
-      LCL_Individual: number;
-      UCL_MovingRange: number;
-      LCL_MovingRange: number;
-      individualSignals: Array<{
-        index: number;
-        value: number;
-        isSignal: boolean;
-        type: 'high' | 'low' | null;
-      }>;
-      rangeSignals: Array<{
-        index: number;
-        value: number;
-        isSignal: boolean;
-        type: 'high-range' | null;
-      }>;
-      dataPoints: number;
-      validRanges: number;
-      invalidRanges: number;
-    };
-  };
+  // Accepts either our internal normalized structure or the BE `ChartData.data`
+  data: any;
   insights?: string[];
 }
 
 export default function XmRChart({ data, insights = [] }: XmRChartProps) {
-  const chartData = useMemo(() => {
-    return data.chartData.map((point, index) => ({
-      name: point.label,
-      value: point.individual,
-      average: point.centralLine,
-      UCL: point.UCL,
-      LCL: point.LCL,
-      isSignal: point.isIndividualSignal
-    }));
+  // Normalize incoming data to a common shape for rendering
+  const { chartData, stats } = useMemo(() => {
+    // Case 1: already in expected shape: { chartData: [...], statistics: {...} }
+    if (data && (data as any).chartData && (data as any).statistics) {
+      const d = data as any;
+      return {
+        chartData: d.chartData.map((point: any) => ({
+          name: point.label,
+          value: point.individual,
+          average: point.centralLine,
+          UCL: point.UCL,
+          LCL: point.LCL,
+          isSignal: point.isIndividualSignal
+        })),
+        stats: d.statistics
+      };
+    }
+
+    // Case 2: BE `ChartData.data`: array of points like { x, y } or any[]
+    if (Array.isArray(data)) {
+      const arr = data as any[];
+      const values = arr.map((p) => (typeof p === 'number' ? p : (p.y ?? p.value ?? 0)));
+      const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+      const sd = values.length ? Math.sqrt(values.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / (values.length || 1)) : 0;
+      const ucl = avg + 3 * sd;
+      const lcl = avg - 3 * sd;
+      return {
+        chartData: arr.map((p, i) => ({
+          name: (p && (p.x ?? p.label)) ?? String(i + 1),
+          value: typeof p === 'number' ? p : (p.y ?? p.value ?? 0),
+          average: avg,
+          UCL: ucl,
+          LCL: lcl,
+          isSignal: false
+        })),
+        stats: {
+          centralLine: avg,
+          averageMovingRange: 0,
+          UCL_Individual: ucl,
+          LCL_Individual: lcl,
+          UCL_MovingRange: 0,
+          LCL_MovingRange: 0,
+          individualSignals: [],
+          rangeSignals: [],
+          dataPoints: values.length,
+          validRanges: Math.max(0, values.length - 1),
+          invalidRanges: 0
+        }
+      };
+    }
+
+    // Fallback: empty
+    return {
+      chartData: [],
+      stats: {
+        centralLine: 0,
+        averageMovingRange: 0,
+        UCL_Individual: 0,
+        LCL_Individual: 0,
+        UCL_MovingRange: 0,
+        LCL_MovingRange: 0,
+        individualSignals: [],
+        rangeSignals: [],
+        dataPoints: 0,
+        validRanges: 0,
+        invalidRanges: 0
+      }
+    };
   }, [data]);
 
   const formatValue = (value: number) => {
@@ -107,7 +133,7 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          {data.statistics.individualSignals.length > 0 && (
+          {stats.individualSignals.length > 0 && (
             <Button variant="default" size="sm" onClick={investigateSignal}>
               <Search className="w-4 h-4 mr-2" />
               Investigate
@@ -136,19 +162,19 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
               
               {/* Control Limits */}
               <ReferenceLine 
-                y={data.statistics.UCL_Individual} 
+                y={stats.UCL_Individual} 
                 stroke="#ef4444" 
                 strokeDasharray="5 5" 
                 label={{ value: "UCL", position: "right" }}
               />
               <ReferenceLine 
-                y={data.statistics.centralLine} 
+                y={stats.centralLine} 
                 stroke="#64748b" 
                 strokeDasharray="3 3" 
                 label={{ value: "Average", position: "right" }}
               />
               <ReferenceLine 
-                y={data.statistics.LCL_Individual} 
+                y={stats.LCL_Individual} 
                 stroke="#ef4444" 
                 strokeDasharray="5 5" 
                 label={{ value: "LCL", position: "right" }}
@@ -174,25 +200,25 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
         <Card className="p-3">
           <div className="text-sm text-slate-500">Central Line</div>
           <div className="text-lg font-semibold text-slate-800">
-            {formatValue(data.statistics.centralLine)}
+            {formatValue(stats.centralLine)}
           </div>
         </Card>
         <Card className="p-3">
           <div className="text-sm text-slate-500">UCL</div>
           <div className="text-lg font-semibold text-emerald-600">
-            {formatValue(data.statistics.UCL_Individual)}
+            {formatValue(stats.UCL_Individual)}
           </div>
         </Card>
         <Card className="p-3">
           <div className="text-sm text-slate-500">LCL</div>
           <div className="text-lg font-semibold text-red-600">
-            {formatValue(data.statistics.LCL_Individual)}
+            {formatValue(stats.LCL_Individual)}
           </div>
         </Card>
       </div>
 
       {/* Insights and Signals */}
-      {(data.statistics.individualSignals.length > 0 || data.statistics.rangeSignals.length > 0) && (
+      {(stats.individualSignals.length > 0 || stats.rangeSignals.length > 0) && (
         <Alert className="border-amber-200 bg-amber-50">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
@@ -207,18 +233,18 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
       )}
 
       {/* Individual Chart Signal Points */}
-      {data.statistics.individualSignals.length > 0 && (
+      {stats.individualSignals.length > 0 && (
         <Card className="p-4">
           <h5 className="font-medium text-slate-800 mb-3">Individual Chart Signals</h5>
           <div className="space-y-2">
-            {data.statistics.individualSignals.map((signal, index) => (
+            {stats.individualSignals.map((signal, index) => (
               <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                 <div className="flex items-center space-x-3">
                   <Badge variant={signal.type === 'high' ? 'destructive' : 'secondary'}>
                     {signal.type === 'high' ? 'High' : 'Low'}
                   </Badge>
                   <span className="text-sm text-slate-700">
-                    Point {signal.index + 1}: {data.chartData[signal.index]?.label || 'Unknown'}
+                    Point {signal.index + 1}: {chartData[signal.index]?.name || 'Unknown'}
                   </span>
                 </div>
                 <span className="text-sm font-medium text-slate-800">
@@ -231,11 +257,11 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
       )}
 
       {/* Moving Range Signal Points */}
-      {data.statistics.rangeSignals.length > 0 && (
+      {stats.rangeSignals.length > 0 && (
         <Card className="p-4">
           <h5 className="font-medium text-slate-800 mb-3">Moving Range Signals</h5>
           <div className="space-y-2">
-            {data.statistics.rangeSignals.map((signal, index) => (
+            {stats.rangeSignals.map((signal, index) => (
               <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                 <div className="flex items-center space-x-3">
                   <Badge variant="destructive">Range</Badge>
@@ -258,19 +284,19 @@ export default function XmRChart({ data, insights = [] }: XmRChartProps) {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-slate-500">Data Points:</span>
-            <span className="ml-2 font-medium">{data.statistics.dataPoints}</span>
+            <span className="ml-2 font-medium">{stats.dataPoints}</span>
           </div>
           <div>
             <span className="text-slate-500">Average Moving Range:</span>
-            <span className="ml-2 font-medium">{formatValue(data.statistics.averageMovingRange)}</span>
+            <span className="ml-2 font-medium">{formatValue(stats.averageMovingRange)}</span>
           </div>
           <div>
             <span className="text-slate-500">Valid Ranges:</span>
-            <span className="ml-2 font-medium">{data.statistics.validRanges}</span>
+            <span className="ml-2 font-medium">{stats.validRanges}</span>
           </div>
           <div>
             <span className="text-slate-500">Process Width:</span>
-            <span className="ml-2 font-medium">{formatValue(data.statistics.UCL_Individual - data.statistics.LCL_Individual)}</span>
+            <span className="ml-2 font-medium">{formatValue(stats.UCL_Individual - stats.LCL_Individual)}</span>
           </div>
         </div>
       </Card>

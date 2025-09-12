@@ -15,6 +15,12 @@ export default defineConfig({
       '@assets': path.resolve(__dirname, './src/assets')
     }
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: './vitest.setup.ts',
+    globals: true,
+    css: true
+  },
   server: {
     port: 3000,
     proxy: {

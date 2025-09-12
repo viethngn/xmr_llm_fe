@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
-import type { Message, Conversation, InsertConversation } from "@shared/schema";
+import { get, post } from "@/lib/api";
+import type { Message, Conversation, InsertConversation, InsertMessage } from "@/types/shared";
 
 export function useChat(conversationId: number | null) {
   const [error, setError] = useState<string | null>(null);
@@ -11,16 +11,14 @@ export function useChat(conversationId: number | null) {
     queryKey: ['/api/conversations', conversationId, 'messages'],
     queryFn: async () => {
       if (!conversationId) return [];
-      const response = await apiRequest('GET', `/api/conversations/${conversationId}/messages`);
-      return response.json() as Promise<Message[]>;
+      return get<Message[]>(`/conversations/${conversationId}/messages`);
     },
     enabled: !!conversationId
   });
 
   const createConversationMutation = useMutation({
     mutationFn: async (data: InsertConversation) => {
-      const response = await apiRequest('POST', '/api/conversations', data);
-      return response.json() as Promise<Conversation>;
+      return post<Conversation>('/conversations', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
@@ -28,9 +26,9 @@ export function useChat(conversationId: number | null) {
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (data: { message: string; conversationId: number; dataSourceId: number }) => {
-      const response = await apiRequest('POST', '/api/chat', data);
-      return response.json() as Promise<Message>;
+    mutationFn: async (data: { content: string; conversationId: number }) => {
+      const payload: InsertMessage = { conversationId: data.conversationId, role: 'user', content: data.content };
+      return post<Message>('/chat', payload);
     },
     onSuccess: (newMessage) => {
       // Update the messages cache
@@ -45,7 +43,7 @@ export function useChat(conversationId: number | null) {
     }
   });
 
-  const sendMessage = async (data: { message: string; conversationId: number; dataSourceId: number }) => {
+  const sendMessage = async (data: { content: string; conversationId: number }) => {
     setError(null);
     return sendMessageMutation.mutateAsync(data);
   };

@@ -1,13 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import type { DataSource } from "@shared/schema";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { get, post, del } from "@/lib/api";
+import type { DataSource, InsertDataSource } from "@/types/shared";
 
 export function useDataSources() {
   return useQuery({
     queryKey: ['/api/data-sources'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/data-sources');
-      return response.json() as Promise<DataSource[]>;
+      return get<DataSource[]>('/data-sources');
     }
   });
 }
@@ -17,9 +16,32 @@ export function useDataSource(id: number | null) {
     queryKey: ['/api/data-sources', id],
     queryFn: async () => {
       if (!id) return null;
-      const response = await apiRequest('GET', `/api/data-sources/${id}`);
-      return response.json() as Promise<DataSource>;
+      return get<DataSource>(`/data-sources/${id}`);
     },
     enabled: !!id
+  });
+}
+
+export function useCreateDataSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: InsertDataSource) => {
+      return post<DataSource>('/data-sources', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
+    }
+  });
+}
+
+export function useDeleteDataSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      return del(`/data-sources/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
+    }
   });
 }

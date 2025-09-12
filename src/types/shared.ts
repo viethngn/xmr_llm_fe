@@ -21,6 +21,7 @@ export interface Conversation {
   id: number;
   userId: number;
   title: string;
+  dataSourceId?: number;
   createdAt: Date;
 }
 
@@ -42,6 +43,11 @@ export interface CSVUpload {
   originalName: string;
   size: number;
   createdAt: Date;
+  data_source_id: number;
+  conversation_id: number;
+  columns: string[];
+  row_count: number;
+  message: string;
 }
 
 export interface ChartData {
