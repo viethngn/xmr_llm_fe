@@ -11,18 +11,18 @@ export interface DataSource {
   userId: number;
   name: string;
   type: 'postgresql' | 'mysql' | 'sqlite' | 'csv';
-  connectionString?: string;
-  csvFileName?: string;
-  csvTableName?: string;
-  createdAt: Date;
+  connectionString?: string | null;
+  csvFileName?: string | null;
+  csvTableName?: string | null;
+  createdAt: string; // ISO 8601 datetime
 }
 
 export interface Conversation {
   id: number;
   userId: number;
   title: string;
-  dataSourceId?: number;
-  createdAt: Date;
+  dataSourceId?: number | null;
+  createdAt: string; // ISO 8601 datetime
 }
 
 export interface Message {
@@ -30,10 +30,10 @@ export interface Message {
   conversationId: number;
   role: 'user' | 'assistant';
   content: string;
-  sqlQuery?: string;
-  sqlResults?: any[];
-  chartData?: ChartData;
-  createdAt: Date;
+  sqlQuery?: string | null;
+  sqlResults?: any[] | null;
+  chartData?: ChartData | null;
+  createdAt: string; // ISO 8601 datetime
 }
 
 export interface CSVUpload {
@@ -42,7 +42,7 @@ export interface CSVUpload {
   filename: string;
   originalName: string;
   size: number;
-  createdAt: Date;
+  createdAt: string; // ISO 8601 datetime
   data_source_id: number;
   conversation_id: number;
   columns: string[];
@@ -63,14 +63,13 @@ export interface ChartData {
   };
   statistics?: {
     individualLimits: {
-      center: number;
-      upper: number;
-      lower: number;
+      UCL: number;
+      LCL: number;
+      mean: number;
     };
     movingRangeLimits: {
-      center: number;
-      upper: number;
-      lower: number;
+      UCL: number;
+      LCL: number;
     };
     totalPoints: number;
     validRanges: number;

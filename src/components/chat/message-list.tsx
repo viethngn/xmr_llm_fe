@@ -55,6 +55,63 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
     return csvRows.join('\n');
   };
 
+  const formatMessageContent = (content: string) => {
+    // Split by newlines and process each line
+    const lines = content.split('\n');
+    
+    return lines.map((line, index) => {
+      // Check for code blocks (lines starting with ```)
+      if (line.trim().startsWith('```')) {
+        return (
+          <div key={index} className="bg-slate-100 rounded-lg p-3 my-2 font-mono text-sm">
+            <code className="whitespace-pre-wrap">{line.replace('```', '')}</code>
+          </div>
+        );
+      }
+      
+      // Check for bullet points (lines starting with - or *)
+      if (line.trim().match(/^[-*]\s/)) {
+        return (
+          <div key={index} className="flex items-start my-1">
+            <span className="text-slate-500 mr-2 mt-1">•</span>
+            <span className="flex-1">{line.replace(/^[-*]\s/, '')}</span>
+          </div>
+        );
+      }
+      
+      // Check for numbered lists (lines starting with numbers)
+      if (line.trim().match(/^\d+\.\s/)) {
+        return (
+          <div key={index} className="flex items-start my-1">
+            <span className="text-slate-500 mr-2 mt-1 font-medium">
+              {line.match(/^\d+/)?.[0]}.
+            </span>
+            <span className="flex-1">{line.replace(/^\d+\.\s/, '')}</span>
+          </div>
+        );
+      }
+      
+      // Check for headers (lines starting with #)
+      if (line.trim().startsWith('#')) {
+        const level = line.match(/^#+/)?.[0].length || 1;
+        const text = line.replace(/^#+\s/, '');
+        const className = level === 1 ? 'text-lg font-bold' : level === 2 ? 'text-base font-semibold' : 'text-sm font-medium';
+        return (
+          <div key={index} className={`${className} mt-4 mb-2 ${index > 0 ? 'pt-2' : ''}`}>
+            {text}
+          </div>
+        );
+      }
+      
+      // Regular paragraph
+      return (
+        <p key={index} className={index > 0 ? 'mt-2' : ''}>
+          {line}
+        </p>
+      );
+    });
+  };
+
   const renderChart = (chartData: any) => {
     if (!chartData) return null;
 
@@ -85,9 +142,9 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                   ? 'bg-primary text-primary-foreground border-primary' 
                   : 'border-slate-200'
               }`}>
-                <p className={message.role === 'user' ? 'text-primary-foreground' : 'text-slate-700'}>
-                  {message.content}
-                </p>
+                <div className={message.role === 'user' ? 'text-primary-foreground' : 'text-slate-700'}>
+                  {formatMessageContent(message.content)}
+                </div>
               </Card>
 
               {/* SQL Query Display */}

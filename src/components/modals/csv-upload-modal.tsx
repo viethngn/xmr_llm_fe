@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { upload } from "@/lib/api";
+import { csvApi } from "@/lib/api";
 import type { CSVUpload } from "@/types/shared";
 
 interface CsvUploadModalProps {
@@ -24,9 +24,7 @@ export default function CsvUploadModal({ open, onOpenChange, onConversationCreat
 
   const uploadCsvMutation = useMutation({
     mutationFn: async (file: File) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      return upload<CSVUpload>('/csv-upload', fd);
+      return csvApi.upload(file);
     },
     onSuccess: (res: CSVUpload) => {
       queryClient.invalidateQueries({ queryKey: ['/api/data-sources'] });
