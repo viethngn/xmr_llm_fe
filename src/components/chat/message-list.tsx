@@ -2,8 +2,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/ui/data-table";
 import XmRChart from "@/components/charts/xmr-chart";
+import ChartImageDisplay from "@/components/charts/chart-image-display";
 import { Copy, Download, Search, BarChart3, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { componentLogger } from "@/lib/logger";
 import type { Message } from "@/types/shared";
 
 interface MessageListProps {
@@ -14,6 +16,20 @@ interface MessageListProps {
 
 export default function MessageList({ messages, isLoading, error }: MessageListProps) {
   const { toast } = useToast();
+
+  // Log message data for debugging
+  componentLogger.render('MessageList', { 
+    messagesCount: messages.length, 
+    isLoading, 
+    error 
+  });
+  
+  // Log chart data in messages
+  messages.forEach((message, index) => {
+    if (message.chartData) {
+      componentLogger.chartData(`Message ${index}`, message.chartData);
+    }
+  });
 
   const handleCopySQL = (sql: string) => {
     navigator.clipboard.writeText(sql);
@@ -220,6 +236,36 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                 <Card className="p-4 border-slate-200">
                   {renderChart(message.chartData)}
                 </Card>
+              )}
+
+              {/* Chart Images Display */}
+              {message.role === 'assistant' && message.chartData?.images && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                    <FileText className="h-4 w-4" />
+                    <span>Chart Visualizations</span>
+                  </div>
+                  <ChartImageDisplay images={message.chartData.images} />
+                </div>
+              )}
+
+              {/* Chart Data Available but No Images */}
+              {message.role === 'assistant' && message.chartData && !message.chartData.images && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                    <FileText className="h-4 w-4" />
+                    <span>Chart Visualizations</span>
+                  </div>
+                  <Card className="p-4 border-slate-200 bg-slate-50">
+                    <div className="text-center text-slate-500">
+                      <FileText className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-sm">Chart images are not available</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Chart data is available, but image generation is not enabled or failed.
+                      </p>
+                    </div>
+                  </Card>
+                </div>
               )}
             </div>
 

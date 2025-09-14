@@ -74,6 +74,20 @@ export interface ChartData {
     totalPoints: number;
     validRanges: number;
   };
+  images?: {
+    main_chart: ChartImage;
+    summary_chart: ChartImage;
+  };
+}
+
+export interface ChartImage {
+  file_path?: string;        // Local file path for debugging
+  base64_data?: string;      // Base64 encoded image data
+  title: string;             // Chart title
+  type: string;              // Chart type (xmr_control_chart, xmr_summary)
+  filename: string;          // Chart filename for API access via GET /api/charts/{filename}
+  url?: string;              // Public URL for accessing the chart
+  error?: string;            // Error message if generation failed
 }
 
 // Insert types

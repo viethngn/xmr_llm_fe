@@ -1,0 +1,319 @@
+{
+  "info": {
+    "name": "XMR LLM Backend API",
+    "description": "Complete API collection for XMR LLM Backend with conversation memory",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "Get All Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations",
+              "host": ["{{baseUrl}}"],
+              "path": ["conversations"]
+            }
+          }
+        },
+        {
+          "name": "Create Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Conversation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/conversations",
+              "host": ["{{baseUrl}}"],
+              "path": ["conversations"]
+            }
+          }
+        },
+        {
+          "name": "Get Conversation Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations/1/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["conversations", "1", "messages"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat & Messaging",
+      "item": [
+        {
+          "name": "Send Message (Basic)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": 1,\n  \"role\": \"user\",\n  \"content\": \"Hello! My name is John and I'm working on data analysis.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message (Memory Test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": 1,\n  \"role\": \"user\",\n  \"content\": \"What's my name and what project am I working on?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message (Context Reference)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": 1,\n  \"role\": \"user\",\n  \"content\": \"Can you tell me more about the analysis you did earlier?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          }
+        },
+        {
+          "name": "Send Message (Chart Generation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": 1,\n  \"role\": \"user\",\n  \"content\": \"Create an XmR control chart for the temperature data and show me the visual analysis.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": [
+            {
+              "name": "Chart Generation Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"conversationId\": 1,\n  \"role\": \"user\",\n  \"content\": \"Create an XmR control chart for the temperature data and show me the visual analysis.\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/chat",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["chat"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 3,\n  \"conversationId\": 1,\n  \"role\": \"assistant\",\n  \"content\": \"I'll create an XmR control chart for your temperature data to analyze the process stability and identify any unusual patterns.\",\n  \"sqlQuery\": null,\n  \"sqlResults\": null,\n  \"chartData\": {\n    \"type\": \"xmr\",\n    \"data\": [\n      {\"x\": \"2024-01-01\", \"y\": 1000, \"pointType\": \"normal\"},\n      {\"x\": \"2024-01-02\", \"y\": 1200, \"pointType\": \"normal\"}\n    ],\n    \"insights\": {\n      \"processStable\": true,\n      \"outOfControlPoints\": [],\n      \"averageValue\": 1100.0,\n      \"averageRange\": 100.0,\n      \"recommendations\": [\"Continue monitoring\", \"Process is stable\"]\n    },\n    \"statistics\": {\n      \"individualLimits\": {\n        \"UCL\": 1300.0,\n        \"LCL\": 900.0,\n        \"mean\": 1100.0\n      },\n      \"movingRangeLimits\": {\n        \"UCL\": 300.0,\n        \"LCL\": 0.0\n      },\n      \"totalPoints\": 10,\n      \"validRanges\": 9\n    },\n    \"images\": {\n      \"main_chart\": {\n        \"file_path\": \"charts/xmr_chart_20240115_103500.png\",\n        \"base64_data\": \"iVBORw0KGgoAAAANSUhEUgAA...\",\n        \"title\": \"XmR Control Chart - temperature vs date\",\n        \"type\": \"xmr_control_chart\",\n        \"filename\": \"xmr_chart_20240115_103500.png\"\n      },\n      \"summary_chart\": {\n        \"file_path\": \"charts/xmr_summary_20240115_103500.png\",\n        \"base64_data\": \"iVBORw0KGgoAAAANSUhEUgAA...\",\n        \"title\": \"XmR Summary - temperature\",\n        \"type\": \"xmr_summary\",\n        \"filename\": \"xmr_summary_20240115_103500.png\"\n      }\n    }\n  },\n  \"createdAt\": \"2024-01-15T10:35:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "File Upload",
+      "item": [
+        {
+          "name": "Upload CSV File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/csv-upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["csv-upload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Data Sources",
+      "item": [
+        {
+          "name": "Get All Data Sources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/data-sources",
+              "host": ["{{baseUrl}}"],
+              "path": ["data-sources"]
+            }
+          }
+        },
+        {
+          "name": "Create Data Source",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Data Source\",\n  \"type\": \"csv\",\n  \"csvFileName\": \"test.csv\",\n  \"csvTableName\": \"test_table\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/data-sources",
+              "host": ["{{baseUrl}}"],
+              "path": ["data-sources"]
+            }
+          }
+        },
+        {
+          "name": "Delete Data Source",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/data-sources/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["data-sources", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Provider Information",
+      "item": [
+        {
+          "name": "Get All Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"]
+            }
+          }
+        },
+        {
+          "name": "Get Provider Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/openai",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "openai"]
+            }
+          }
+        },
+        {
+          "name": "Get Provider Models",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/models/openai",
+              "host": ["{{baseUrl}}"],
+              "path": ["models", "openai"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
