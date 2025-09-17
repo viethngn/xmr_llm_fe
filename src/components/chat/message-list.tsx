@@ -2,8 +2,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/ui/data-table";
 import XmRChart from "@/components/charts/xmr-chart";
+import ChartImageDisplay from "@/components/charts/chart-image-display";
 import { Copy, Download, Search, BarChart3, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { componentLogger } from "@/lib/logger";
 import type { Message } from "@/types/shared";
 
 interface MessageListProps {
@@ -14,6 +16,20 @@ interface MessageListProps {
 
 export default function MessageList({ messages, isLoading, error }: MessageListProps) {
   const { toast } = useToast();
+
+  // Log message data for debugging
+  componentLogger.render('MessageList', { 
+    messagesCount: messages.length, 
+    isLoading, 
+    error 
+  });
+  
+  // Log chart data in messages
+  messages.forEach((message, index) => {
+    if (message.chartData) {
+      componentLogger.chartData(`Message ${index}`, message.chartData);
+    }
+  });
 
   const handleCopySQL = (sql: string) => {
     navigator.clipboard.writeText(sql);
@@ -55,6 +71,63 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
     return csvRows.join('\n');
   };
 
+  const formatMessageContent = (content: string) => {
+    // Split by newlines and process each line
+    const lines = content.split('\n');
+    
+    return lines.map((line, index) => {
+      // Check for code blocks (lines starting with ```)
+      if (line.trim().startsWith('```')) {
+        return (
+          <div key={index} className="bg-slate-100 rounded-lg p-3 my-2 font-mono text-sm">
+            <code className="whitespace-pre-wrap">{line.replace('```', '')}</code>
+          </div>
+        );
+      }
+      
+      // Check for bullet points (lines starting with - or *)
+      if (line.trim().match(/^[-*]\s/)) {
+        return (
+          <div key={index} className="flex items-start my-1">
+            <span className="text-slate-500 mr-2 mt-1">•</span>
+            <span className="flex-1">{line.replace(/^[-*]\s/, '')}</span>
+          </div>
+        );
+      }
+      
+      // Check for numbered lists (lines starting with numbers)
+      if (line.trim().match(/^\d+\.\s/)) {
+        return (
+          <div key={index} className="flex items-start my-1">
+            <span className="text-slate-500 mr-2 mt-1 font-medium">
+              {line.match(/^\d+/)?.[0]}.
+            </span>
+            <span className="flex-1">{line.replace(/^\d+\.\s/, '')}</span>
+          </div>
+        );
+      }
+      
+      // Check for headers (lines starting with #)
+      if (line.trim().startsWith('#')) {
+        const level = line.match(/^#+/)?.[0].length || 1;
+        const text = line.replace(/^#+\s/, '');
+        const className = level === 1 ? 'text-lg font-bold' : level === 2 ? 'text-base font-semibold' : 'text-sm font-medium';
+        return (
+          <div key={index} className={`${className} mt-4 mb-2 ${index > 0 ? 'pt-2' : ''}`}>
+            {text}
+          </div>
+        );
+      }
+      
+      // Regular paragraph
+      return (
+        <p key={index} className={index > 0 ? 'mt-2' : ''}>
+          {line}
+        </p>
+      );
+    });
+  };
+
   const renderChart = (chartData: any) => {
     if (!chartData) return null;
 
@@ -85,9 +158,9 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                   ? 'bg-primary text-primary-foreground border-primary' 
                   : 'border-slate-200'
               }`}>
-                <p className={message.role === 'user' ? 'text-primary-foreground' : 'text-slate-700'}>
-                  {message.content}
-                </p>
+                <div className={message.role === 'user' ? 'text-primary-foreground' : 'text-slate-700'}>
+                  {formatMessageContent(message.content)}
+                </div>
               </Card>
 
               {/* SQL Query Display */}
@@ -163,6 +236,36 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                 <Card className="p-4 border-slate-200">
                   {renderChart(message.chartData)}
                 </Card>
+              )}
+
+              {/* Chart Images Display */}
+              {message.role === 'assistant' && message.chartData?.images && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                    <FileText className="h-4 w-4" />
+                    <span>Chart Visualizations</span>
+                  </div>
+                  <ChartImageDisplay images={message.chartData.images} />
+                </div>
+              )}
+
+              {/* Chart Data Available but No Images */}
+              {message.role === 'assistant' && message.chartData && !message.chartData.images && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                    <FileText className="h-4 w-4" />
+                    <span>Chart Visualizations</span>
+                  </div>
+                  <Card className="p-4 border-slate-200 bg-slate-50">
+                    <div className="text-center text-slate-500">
+                      <FileText className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-sm">Chart images are not available</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Chart data is available, but image generation is not enabled or failed.
+                      </p>
+                    </div>
+                  </Card>
+                </div>
               )}
             </div>
 

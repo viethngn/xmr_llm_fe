@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { get, post } from "@/lib/api";
+import { apiLogger } from "@/lib/logger";
 import type { Message, Conversation, InsertConversation, InsertMessage } from "@/types/shared";
 
 export function useChat(conversationId: number | null) {
@@ -28,9 +29,16 @@ export function useChat(conversationId: number | null) {
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { content: string; conversationId: number }) => {
       const payload: InsertMessage = { conversationId: data.conversationId, role: 'user', content: data.content };
+      
+      // Log chat message details
+      apiLogger.chat(data.conversationId, data.content);
+      
       return post<Message>('/chat', payload);
     },
     onSuccess: (assistantMessage) => {
+      // Log assistant response details
+      apiLogger.chat(conversationId || 0, 'Assistant Response', assistantMessage);
+      
       // Add the assistant's response to the cache
       queryClient.setQueryData(
         ['/api/conversations', conversationId, 'messages'],
@@ -39,6 +47,7 @@ export function useChat(conversationId: number | null) {
       setError(null);
     },
     onError: (error: any) => {
+      apiLogger.error('POST', '/chat', error);
       setError(error.message || 'Failed to send message');
     }
   });
