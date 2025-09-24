@@ -51,8 +51,11 @@ export interface CSVUpload {
 }
 
 export interface ChartData {
-  type: 'xmr' | 'table';
+  type: 'xmr' | 'line' | 'bar' | 'pie' | 'table';
   data: any[];
+  title?: string;
+  xAxisKey?: string;
+  yAxisKey?: string;
   insights?: {
     processStable: boolean;
     outOfControlPoints: number[];

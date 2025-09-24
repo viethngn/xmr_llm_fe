@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Download, AlertCircle, Loader2 } from "lucide-react";
+import { Download, AlertCircle, Loader2 } from "lucide-react";
 import { componentLogger } from "@/lib/logger";
 import { chartsApi } from "@/lib/api";
 import type { ChartImage } from "@/types/shared";
@@ -63,26 +63,6 @@ export default function ChartImageDisplay({ images }: ChartImageDisplayProps) {
           {/* Chart Title */}
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-slate-700">{chart.title}</h4>
-            <div className="flex items-center space-x-2">
-              {(chart.url || chart.filename) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="text-xs text-slate-500 hover:text-slate-700"
-                >
-                  <a
-                    href={chart.url || chartsApi.getImage(chart.filename)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-1"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    <span>View Full Size</span>
-                  </a>
-                </Button>
-              )}
-            </div>
           </div>
 
           {/* Chart Image */}
@@ -117,23 +97,26 @@ export default function ChartImageDisplay({ images }: ChartImageDisplayProps) {
           {/* Chart Actions */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100">
             <div className="text-xs text-slate-500">
-              {chart.type === 'xmr_control_chart' ? 'XmR Control Chart' : 'XmR Summary Chart'}
+              {chart.title}
             </div>
-            {(chart.url || chart.filename) && (
+            {(chart.url || chart.filename || chart.base64_data) && (
               <Button
                 variant="outline"
                 size="sm"
-                asChild
+                onClick={() => {
+                  const link = document.createElement('a');
+                  if (chart.base64_data) {
+                    link.href = `data:image/png;base64,${chart.base64_data}`;
+                  } else {
+                    link.href = chart.url || chartsApi.getImage(chart.filename);
+                  }
+                  link.download = `${chart.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+                  link.click();
+                }}
                 className="text-xs"
               >
-                <a
-                  href={chart.url || chartsApi.getImage(chart.filename)}
-                  download={`${chart.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`}
-                  className="flex items-center space-x-1"
-                >
-                  <Download className="h-3 w-3" />
-                  <span>Download</span>
-                </a>
+                <Download className="h-3 w-3 mr-1" />
+                <span>Download</span>
               </Button>
             )}
           </div>

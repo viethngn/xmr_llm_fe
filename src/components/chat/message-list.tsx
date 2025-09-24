@@ -2,11 +2,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/ui/data-table";
 import XmRChart from "@/components/charts/xmr-chart";
+import UniversalChart from "@/components/charts/universal-chart";
 import ChartImageDisplay from "@/components/charts/chart-image-display";
-import { Copy, Download, Search, BarChart3, FileText } from "lucide-react";
+import ChartErrorBoundary from "@/components/charts/chart-error-boundary";
+import { Copy, Download, FileText, BarChart3, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { componentLogger } from "@/lib/logger";
 import type { Message } from "@/types/shared";
+import { useState } from "react";
 
 interface MessageListProps {
   messages: Message[];
@@ -16,6 +19,7 @@ interface MessageListProps {
 
 export default function MessageList({ messages, isLoading, error }: MessageListProps) {
   const { toast } = useToast();
+  const [showStaticCharts, setShowStaticCharts] = useState<{ [messageId: number]: boolean }>({});
 
   // Log message data for debugging
   componentLogger.render('MessageList', { 
@@ -129,13 +133,96 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
   };
 
   const renderChart = (chartData: any) => {
-    if (!chartData) return null;
+    try {
+      if (!chartData) return null;
+      
+      // Comprehensive debug logging
+      console.log('🔍 CHART DEBUG - Rendering chart with data:', {
+        type: chartData.type,
+        typeType: typeof chartData.type,
+        typeValue: JSON.stringify(chartData.type),
+        typeStrictEqual: chartData.type === 'xmr',
+        typeLooseEqual: chartData.type == 'xmr',
+        title: chartData.title,
+        dataLength: chartData.data?.length,
+        hasImages: !!chartData.images,
+        hasStatistics: !!chartData.statistics,
+        hasInsights: !!chartData.insights,
+        imageTypes: chartData.images ? {
+          main: chartData.images.main_chart?.type,
+          summary: chartData.images.summary_chart?.type
+        } : 'No images',
+        fullChartData: chartData
+      });
 
-    switch (chartData.type) {
-      case 'xmr':
-        return <XmRChart data={chartData.data} insights={chartData.insights} />;
-      default:
-        return null;
+      // Detect XmR charts by multiple criteria
+      const isXmRChart = chartData.type === 'xmr' || 
+                        chartData.type === 'XmR' ||
+                        chartData.type === 'XMR' ||
+                        (chartData.images && (
+                          chartData.images.main_chart?.type?.includes('xmr') ||
+                          chartData.images.summary_chart?.type?.includes('xmr') ||
+                          chartData.images.main_chart?.title?.toLowerCase().includes('xmr') ||
+                          chartData.images.summary_chart?.title?.toLowerCase().includes('xmr')
+                        )) ||
+                        (chartData.title && chartData.title.toLowerCase().includes('xmr')) ||
+                        (chartData.statistics && chartData.statistics.individualLimits) ||
+                        (chartData.insights && chartData.insights.processStable !== undefined) ||
+                        // Additional data structure checks
+                        (chartData.data && Array.isArray(chartData.data) && 
+                         chartData.data.some((item: any) => 
+                           item && typeof item === 'object' && 
+                           (item.UCL !== undefined || item.LCL !== undefined || item.average !== undefined)
+                         ));
+
+      console.log('🔍 XmR Detection:', {
+        typeCheck: chartData.type === 'xmr',
+        imageCheck: chartData.images && (
+          chartData.images.main_chart?.type?.includes('xmr') ||
+          chartData.images.summary_chart?.type?.includes('xmr')
+        ),
+        titleCheck: chartData.title && chartData.title.toLowerCase().includes('xmr'),
+        statisticsCheck: chartData.statistics && chartData.statistics.individualLimits,
+        insightsCheck: chartData.insights && chartData.insights.processStable !== undefined,
+        dataStructureCheck: chartData.data && Array.isArray(chartData.data) && 
+                           chartData.data.some((item: any) => 
+                             item && typeof item === 'object' && 
+                             (item.UCL !== undefined || item.LCL !== undefined || item.average !== undefined)
+                           ),
+        finalResult: isXmRChart
+      });
+
+      // Use XmRChart for XmR charts (detected by multiple criteria)
+      if (isXmRChart) {
+        console.log('✅ Using XmRChart component');
+        return <XmRChart data={chartData.data} title={chartData.title} insights={chartData.insights} />;
+      }
+
+      // Use UniversalChart for all other chart types
+      // Provide fallback for undefined/null chart types
+      const chartType = chartData.type || 'bar';
+      console.log('Using chart type:', chartType);
+      
+      return (
+        <UniversalChart
+          data={chartData.data}
+          chartType={chartType as 'line' | 'bar' | 'pie' | 'table'}
+          title={chartData.title}
+          xAxisKey={chartData.xAxisKey}
+          yAxisKey={chartData.yAxisKey}
+          insights={chartData.insights}
+        />
+      );
+    } catch (error) {
+      console.error('Error rendering chart:', error);
+      return (
+        <Card className="p-4 border-red-200 bg-red-50">
+          <div className="text-center text-red-600">
+            <p className="text-sm font-medium">Chart Rendering Error</p>
+            <p className="text-xs mt-1">Failed to render chart. Check console for details.</p>
+          </div>
+        </Card>
+      );
     }
   };
 
@@ -194,32 +281,16 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                     maxRows={10}
                   />
                   
-                  <div className="flex items-center space-x-3 mt-4">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => {/* Handle create chart */}}
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Create Chart
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportData(message.sqlResults as any[], 'query-results.csv')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {/* Handle drill down */}}
-                    >
-                      <Search className="w-4 h-4 mr-2" />
-                      Drill Down
-                    </Button>
-                  </div>
+                   <div className="flex items-center space-x-3 mt-4">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => handleExportData(message.sqlResults as any[], 'query-results.csv')}
+                     >
+                       <Download className="w-4 h-4 mr-2" />
+                       Export CSV
+                     </Button>
+                   </div>
 
                   {/* Execution time display */}
                   {/** Optional: executionTime not guaranteed */}
@@ -231,41 +302,64 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                 </Card>
               )}
 
-              {/* Chart Display */}
+              {/* Enhanced Chart Display with Toggle */}
               {message.role === 'assistant' && message.chartData && (
                 <Card className="p-4 border-slate-200">
-                  {renderChart(message.chartData)}
-                </Card>
-              )}
-
-              {/* Chart Images Display */}
-              {message.role === 'assistant' && message.chartData?.images && (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
-                    <FileText className="h-4 w-4" />
-                    <span>Chart Visualizations</span>
-                  </div>
-                  <ChartImageDisplay images={message.chartData.images} />
-                </div>
-              )}
-
-              {/* Chart Data Available but No Images */}
-              {message.role === 'assistant' && message.chartData && !message.chartData.images && (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
-                    <FileText className="h-4 w-4" />
-                    <span>Chart Visualizations</span>
-                  </div>
-                  <Card className="p-4 border-slate-200 bg-slate-50">
-                    <div className="text-center text-slate-500">
-                      <FileText className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-sm">Chart images are not available</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Chart data is available, but image generation is not enabled or failed.
-                      </p>
+                  <div className="space-y-4">
+                    {/* Chart Type Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                        <BarChart3 className="h-4 w-4" />
+                        <span>Chart Visualizations</span>
+                      </div>
+                      {message.chartData.images && (
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant={!showStaticCharts[message.id] ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: false }))}
+                            className="flex items-center space-x-1"
+                          >
+                            <BarChart3 className="h-3 w-3" />
+                            <span>Interactive</span>
+                          </Button>
+                          <Button
+                            variant={showStaticCharts[message.id] ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: true }))}
+                            className="flex items-center space-x-1"
+                          >
+                            <Image className="h-3 w-3" />
+                            <span>Static Images</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  </Card>
-                </div>
+
+                    {/* Interactive Chart (Default) */}
+                    {!showStaticCharts[message.id] && (
+                      <ChartErrorBoundary>
+                        {renderChart(message.chartData)}
+                      </ChartErrorBoundary>
+                    )}
+
+                    {/* Static Chart Images (Optional) */}
+                    {showStaticCharts[message.id] && message.chartData.images && (
+                      <ChartImageDisplay images={message.chartData.images} />
+                    )}
+
+                    {/* Fallback when no images available but static view requested */}
+                    {showStaticCharts[message.id] && !message.chartData.images && (
+                      <div className="text-center text-slate-500 py-8">
+                        <Image className="h-8 w-8 mx-auto mb-2" />
+                        <p className="text-sm">Chart images are not available</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Chart data is available, but image generation is not enabled or failed.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
               )}
             </div>
 
