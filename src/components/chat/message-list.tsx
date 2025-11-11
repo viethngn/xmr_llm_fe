@@ -8,7 +8,7 @@ import LineChartComponent from "@/components/charts/line-chart";
 import UniversalChart from "@/components/charts/universal-chart";
 import ChartImageDisplay from "@/components/charts/chart-image-display";
 import ChartErrorBoundary from "@/components/charts/chart-error-boundary";
-import { Copy, Download, FileText, BarChart3, Image } from "lucide-react";
+import { Copy, Download, FileText, BarChart3, Image, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { componentLogger, fileLogger } from "@/lib/logger";
 import type { Message } from "@/types/shared";
@@ -152,6 +152,37 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
     try {
       if (!chartData) return null;
       
+      // Helper function to find data from previous messages in the conversation
+      const findDataFromPreviousMessages = (): any[] | null => {
+        if (!message || !messages || messages.length === 0) return null;
+        
+        // Find the current message's index
+        const currentIndex = messages.findIndex(m => m.id === message.id);
+        if (currentIndex === -1) return null;
+        
+        // Look backwards through previous messages for sqlResults
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          const prevMessage = messages[i];
+          if (prevMessage?.sqlResults && 
+              Array.isArray(prevMessage.sqlResults) && 
+              prevMessage.sqlResults.length > 0) {
+            console.log(`✅ MessageList: Found data in previous message ${prevMessage.id}`, {
+              messageId: prevMessage.id,
+              sqlResultsLength: prevMessage.sqlResults.length,
+              sqlResultsSample: prevMessage.sqlResults.slice(0, 2)
+            });
+            fileLogger.info('MESSAGE_LIST', `Found data in previous message ${prevMessage.id}`, {
+              currentMessageId: message.id,
+              previousMessageId: prevMessage.id,
+              sqlResultsLength: prevMessage.sqlResults.length
+            });
+            return prevMessage.sqlResults;
+          }
+        }
+        
+        return null;
+      };
+      
       // Comprehensive debug logging
       console.log('🔍 CHART DEBUG - Rendering chart with data:', {
         type: chartData.type,
@@ -292,6 +323,37 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
         title: chartData.title,
         determinedType: chartType
       });
+      // Log message.sqlResults BEFORE data source selection
+      console.log('🔍 MessageList: Checking data sources BEFORE selection', {
+        messageId: message?.id,
+        hasSqlResults: !!message?.sqlResults,
+        sqlResultsType: typeof message?.sqlResults,
+        sqlResultsIsArray: Array.isArray(message?.sqlResults),
+        sqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 'N/A',
+        sqlResultsSample: Array.isArray(message?.sqlResults) && message.sqlResults.length > 0 
+          ? message.sqlResults.slice(0, 2) 
+          : message?.sqlResults,
+        hasChartData: !!chartData.data,
+        chartDataType: typeof chartData.data,
+        chartDataIsArray: Array.isArray(chartData.data),
+        chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 'N/A',
+        chartDataSample: Array.isArray(chartData.data) && chartData.data.length > 0 
+          ? chartData.data.slice(0, 2) 
+          : chartData.data,
+        // Check for data in other possible locations
+        fullMessageKeys: message ? Object.keys(message) : [],
+        fullChartDataKeys: chartData ? Object.keys(chartData) : [],
+        chartDataStringified: JSON.stringify(chartData).substring(0, 500) // First 500 chars
+      });
+      fileLogger.debug('MESSAGE_LIST', 'Checking data sources BEFORE selection', {
+        messageId: message?.id,
+        hasSqlResults: !!message?.sqlResults,
+        sqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 'N/A',
+        chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 'N/A',
+        fullMessageKeys: message ? Object.keys(message) : [],
+        fullChartDataKeys: chartData ? Object.keys(chartData) : []
+      });
+      
       const routingInfo = {
         chartType,
         hasData: !!chartData.data,
@@ -327,17 +389,44 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
           chartDataSample: chartData.data.slice(0, 2)
         });
         chartDataToUse = chartData.data;
-      } 
-      // Fallback: Log error if no data available
+      }
+      // Third priority: Try to find data from previous messages in the conversation
+      // This handles the case where backend generates static charts but doesn't send raw data
       else {
-        console.error('❌ MessageList: No data available in message.sqlResults or chartData.data');
-        fileLogger.error('MESSAGE_LIST', 'No data available in message.sqlResults or chartData.data', { 
-          chartData, 
-          hasSqlResults: !!message?.sqlResults,
-          sqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 0,
-          hasChartData: !!chartData.data,
-          chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 0
+        const previousData = findDataFromPreviousMessages();
+        if (previousData) {
+          console.log('✅ MessageList: Using data from previous message (backend sent static charts but no raw data)');
+          fileLogger.info('MESSAGE_LIST', 'Using data from previous message', { 
+            dataLength: previousData.length,
+            dataSample: previousData.slice(0, 2),
+            currentMessageId: message?.id
+          });
+          chartDataToUse = previousData;
+        } else {
+          console.error('❌ MessageList: No data available in message.sqlResults, chartData.data, or previous messages - skipping chart render');
+          fileLogger.error('MESSAGE_LIST', 'No data available in message.sqlResults, chartData.data, or previous messages - skipping chart render', { 
+            chartData, 
+            hasSqlResults: !!message?.sqlResults,
+            sqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 0,
+            hasChartData: !!chartData.data,
+            chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 0,
+            messageId: message?.id,
+            totalMessages: messages.length
+          });
+          // Return null to prevent rendering chart with no data
+          return null;
+        }
+      }
+      
+      // Ensure chartDataToUse is not null before proceeding
+      if (!chartDataToUse || (Array.isArray(chartDataToUse) && chartDataToUse.length === 0)) {
+        console.error('❌ MessageList: chartDataToUse is null or empty after data source selection');
+        fileLogger.error('MESSAGE_LIST', 'chartDataToUse is null or empty after data source selection', {
+          chartData,
+          message: message ? { id: message.id, hasSqlResults: !!message.sqlResults } : null,
+          chartDataToUse
         });
+        return null;
       }
       
       const dataSourceInfo = {
@@ -359,7 +448,28 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
       console.log('🔍 MessageList: Checking data sources', dataSourceInfo);
       fileLogger.debug('MESSAGE_LIST', 'Checking data sources', dataSourceInfo);
       
+      // Final safety check: Ensure chartDataToUse has valid data before rendering
+      if (!chartDataToUse || (Array.isArray(chartDataToUse) && chartDataToUse.length === 0)) {
+        console.error('❌ MessageList: Final safety check failed - chartDataToUse is null or empty, skipping chart render');
+        fileLogger.error('MESSAGE_LIST', 'Final safety check failed - chartDataToUse is null or empty', {
+          chartDataToUse,
+          chartDataToUseType: typeof chartDataToUse,
+          chartDataToUseIsArray: Array.isArray(chartDataToUse),
+          chartDataToUseLength: Array.isArray(chartDataToUse) ? chartDataToUse.length : 'N/A',
+          messageId: message?.id,
+          chartType
+        });
+        return null;
+      }
+      
       // Log what we're passing to the chart component
+      console.log('✅ MessageList: Passing data to chart component', {
+        chartType,
+        dataLength: Array.isArray(chartDataToUse) ? chartDataToUse.length : 'N/A',
+        dataSample: Array.isArray(chartDataToUse) && chartDataToUse.length > 0 
+          ? chartDataToUse.slice(0, 2) 
+          : chartDataToUse
+      });
       fileLogger.info('MESSAGE_LIST', `Passing data to ${chartType} chart component`, {
         chartType,
         dataLength: Array.isArray(chartDataToUse) ? chartDataToUse.length : 'N/A',
@@ -511,62 +621,118 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
 
               {/* Enhanced Chart Display with Toggle */}
               {message.role === 'assistant' && message.chartData && (
-                <Card className="p-4 border-slate-200">
-                  <div className="space-y-4">
-                    {/* Chart Type Toggle */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
-                        <BarChart3 className="h-4 w-4" />
-                        <span>Chart Visualizations</span>
-                      </div>
-                      {message.chartData.images && (
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant={!showStaticCharts[message.id] ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: false }))}
-                            className="flex items-center space-x-1"
-                          >
-                            <BarChart3 className="h-3 w-3" />
-                            <span>Interactive</span>
-                          </Button>
-                          <Button
-                            variant={showStaticCharts[message.id] ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: true }))}
-                            className="flex items-center space-x-1"
-                          >
-                            <Image className="h-3 w-3" />
-                            <span>Static Images</span>
-                          </Button>
+                (() => {
+                  // Pre-check: Only render chart card if we have data OR static images
+                  const hasData = (message.sqlResults && Array.isArray(message.sqlResults) && message.sqlResults.length > 0) ||
+                                  (message.chartData.data && Array.isArray(message.chartData.data) && message.chartData.data.length > 0);
+                  const hasImages = message.chartData.images && 
+                                    (message.chartData.images.main_chart?.base64_data || message.chartData.images.main_chart?.filename);
+                  
+                  // Don't render chart card if there's no data and no images
+                  if (!hasData && !hasImages) {
+                    console.log('⏭️ MessageList: Skipping chart card render - no data and no images', {
+                      messageId: message.id,
+                      hasSqlResults: !!message.sqlResults,
+                      sqlResultsLength: Array.isArray(message.sqlResults) ? message.sqlResults.length : 0,
+                      hasChartData: !!message.chartData.data,
+                      chartDataLength: Array.isArray(message.chartData.data) ? message.chartData.data.length : 0,
+                      hasImages: !!message.chartData.images
+                    });
+                    fileLogger.debug('MESSAGE_LIST', 'Skipping chart card render - no data and no images', {
+                      messageId: message.id,
+                      hasSqlResults: !!message.sqlResults,
+                      sqlResultsLength: Array.isArray(message.sqlResults) ? message.sqlResults.length : 0,
+                      hasChartData: !!message.chartData.data,
+                      chartDataLength: Array.isArray(message.chartData.data) ? message.chartData.data.length : 0
+                    });
+                    return null;
+                  }
+                  
+                  return (
+                    <Card className="p-4 border-slate-200">
+                      <div className="space-y-4">
+                        {/* Chart Type Toggle */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 text-sm font-medium text-slate-600">
+                            <BarChart3 className="h-4 w-4" />
+                            <span>Chart Visualizations</span>
+                          </div>
+                          {message.chartData.images && (
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant={!showStaticCharts[message.id] ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: false }))}
+                                className="flex items-center space-x-1"
+                              >
+                                <BarChart3 className="h-3 w-3" />
+                                <span>Interactive</span>
+                              </Button>
+                              <Button
+                                variant={showStaticCharts[message.id] ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: true }))}
+                                className="flex items-center space-x-1"
+                              >
+                                <Image className="h-3 w-3" />
+                                <span>Static Images</span>
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* Interactive Chart (Default) */}
-                    {!showStaticCharts[message.id] && (
-                      <ChartErrorBoundary>
-                        {renderChart(message.chartData, message)}
-                      </ChartErrorBoundary>
-                    )}
+                        {/* Interactive Chart (Default) */}
+                        {!showStaticCharts[message.id] && (
+                          <ChartErrorBoundary>
+                            {(() => {
+                              const chartComponent = renderChart(message.chartData, message);
+                              // If chart component is null (no data) but static images exist, show helpful message
+                              if (!chartComponent && hasImages) {
+                                return (
+                                  <Card className="p-4 border-amber-200 bg-amber-50">
+                                    <div className="text-center text-amber-600">
+                                      <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                                      <p className="text-sm font-medium">Interactive Chart Data Not Available</p>
+                                      <p className="text-xs mt-1 mb-3">
+                                        The raw data needed for interactive charts is not available, but static chart images are available.
+                                      </p>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowStaticCharts(prev => ({ ...prev, [message.id]: true }))}
+                                        className="flex items-center space-x-1 mx-auto"
+                                      >
+                                        <Image className="h-3 w-3" />
+                                        <span>View Static Images</span>
+                                      </Button>
+                                    </div>
+                                  </Card>
+                                );
+                              }
+                              return chartComponent;
+                            })()}
+                          </ChartErrorBoundary>
+                        )}
 
-                    {/* Static Chart Images (Optional) */}
-                    {showStaticCharts[message.id] && message.chartData.images && (
-                      <ChartImageDisplay images={message.chartData.images} />
-                    )}
+                        {/* Static Chart Images (Optional) */}
+                        {showStaticCharts[message.id] && message.chartData.images && (
+                          <ChartImageDisplay images={message.chartData.images} />
+                        )}
 
-                    {/* Fallback when no images available but static view requested */}
-                    {showStaticCharts[message.id] && !message.chartData.images && (
-                      <div className="text-center text-slate-500 py-8">
-                        <Image className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Chart images are not available</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Chart data is available, but image generation is not enabled or failed.
-                        </p>
+                        {/* Fallback when no images available but static view requested */}
+                        {showStaticCharts[message.id] && !message.chartData.images && (
+                          <div className="text-center text-slate-500 py-8">
+                            <Image className="h-8 w-8 mx-auto mb-2" />
+                            <p className="text-sm">Chart images are not available</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Chart data is available, but image generation is not enabled or failed.
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </Card>
+                    </Card>
+                  );
+                })()
               )}
             </div>
 

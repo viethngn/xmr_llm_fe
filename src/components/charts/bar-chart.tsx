@@ -34,7 +34,9 @@ export default function BarChartComponent({ data, title, insights = [], xAxisKey
       hasChartData: !!(data as any)?.chartData,
       hasStatistics: !!(data as any)?.statistics,
       dataLength: Array.isArray(data) ? data.length : 'N/A',
-      firstItem: Array.isArray(data) && data.length > 0 ? data[0] : 'N/A'
+      firstItem: Array.isArray(data) && data.length > 0 ? data[0] : 'N/A',
+      xAxisKey,
+      yAxisKey
     });
     
     // Log to file
@@ -42,11 +44,21 @@ export default function BarChartComponent({ data, title, insights = [], xAxisKey
       inputData: data,
       dataType: typeof data,
       isArray: Array.isArray(data),
-      dataLength: Array.isArray(data) ? data.length : 'N/A'
+      dataLength: Array.isArray(data) ? data.length : 'N/A',
+      xAxisKey,
+      yAxisKey
     });
 
     if (!data) {
       console.warn('⚠️ BarChart: No data provided');
+      fileLogger.warn('BAR_CHART', 'No data provided', { data, xAxisKey, yAxisKey });
+      return { chartData: [], stats: null };
+    }
+    
+    // Handle null or undefined explicitly
+    if (data === null || data === undefined) {
+      console.warn('⚠️ BarChart: Data is null or undefined');
+      fileLogger.warn('BAR_CHART', 'Data is null or undefined', { data, xAxisKey, yAxisKey });
       return { chartData: [], stats: null };
     }
 
