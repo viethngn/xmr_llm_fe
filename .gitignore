@@ -17,7 +17,11 @@ build/
 .env.production.local
 
 # Logs
-*.log
+logs/*.log
+logs/*.json
+# Keep logs directory but ignore log files
+!logs/.gitkeep
+!logs/README.md
 
 # Runtime data
 *.pid

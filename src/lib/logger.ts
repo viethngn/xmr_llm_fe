@@ -1,6 +1,9 @@
 // API Logging Configuration
 export const API_LOGGING_ENABLED = import.meta.env.VITE_API_LOGGING === 'true' || import.meta.env.DEV;
 
+// Import file logger
+import { fileLogger, logToFile } from './file-logger';
+
 // Enhanced console logging with API context
 export const apiLogger = {
   request: (method: string, url: string, data?: any) => {
@@ -17,6 +20,9 @@ export const apiLogger = {
       console.log('📦 Request Data:', data);
     }
     console.groupEnd();
+    
+    // Log to file
+    fileLogger.info('API_REQUEST', `${method} ${url}`, { method, url, data });
   },
 
   response: (method: string, url: string, response: Response, data?: any) => {
@@ -38,6 +44,22 @@ export const apiLogger = {
       if (data.chartData) {
         console.log('📊 Chart Data Analysis:', {
           type: data.chartData.type,
+          hasData: !!data.chartData.data,
+          dataType: typeof data.chartData.data,
+          dataIsArray: Array.isArray(data.chartData.data),
+          dataLength: Array.isArray(data.chartData.data) ? data.chartData.data.length : 'N/A',
+          dataSample: Array.isArray(data.chartData.data) && data.chartData.data.length > 0
+            ? data.chartData.data.slice(0, 3)
+            : data.chartData.data,
+          dataKeys: Array.isArray(data.chartData.data) && data.chartData.data.length > 0 && typeof data.chartData.data[0] === 'object'
+            ? Object.keys(data.chartData.data[0])
+            : 'N/A',
+          hasTitle: !!data.chartData.title,
+          title: data.chartData.title,
+          hasXAxisKey: !!data.chartData.xAxisKey,
+          xAxisKey: data.chartData.xAxisKey,
+          hasYAxisKey: !!data.chartData.yAxisKey,
+          yAxisKey: data.chartData.yAxisKey,
           hasImages: !!data.chartData.images,
           images: data.chartData.images ? {
             main_chart: {
@@ -63,6 +85,9 @@ export const apiLogger = {
       }
     }
     console.groupEnd();
+    
+    // Log to file
+    fileLogger.info('API_RESPONSE', `${method} ${url}`, { method, url, status: response.status, data });
   },
 
   error: (method: string, url: string, error: any) => {
@@ -72,6 +97,9 @@ export const apiLogger = {
     console.error('Error details:', error);
     console.log('Timestamp:', new Date().toISOString());
     console.groupEnd();
+    
+    // Log to file
+    fileLogger.error('API_ERROR', `${method} ${url}`, { method, url, error });
   },
 
   chat: (conversationId: number, message: string, response?: any) => {
@@ -83,6 +111,23 @@ export const apiLogger = {
       console.log('🤖 Response:', response);
       if (response.chartData) {
         console.log('📊 Chart Data in Response:', {
+          type: response.chartData.type,
+          hasData: !!response.chartData.data,
+          dataType: typeof response.chartData.data,
+          dataIsArray: Array.isArray(response.chartData.data),
+          dataLength: Array.isArray(response.chartData.data) ? response.chartData.data.length : 'N/A',
+          dataSample: Array.isArray(response.chartData.data) && response.chartData.data.length > 0
+            ? response.chartData.data.slice(0, 3)
+            : response.chartData.data,
+          dataKeys: Array.isArray(response.chartData.data) && response.chartData.data.length > 0 && typeof response.chartData.data[0] === 'object'
+            ? Object.keys(response.chartData.data[0])
+            : 'N/A',
+          hasTitle: !!response.chartData.title,
+          title: response.chartData.title,
+          hasXAxisKey: !!response.chartData.xAxisKey,
+          xAxisKey: response.chartData.xAxisKey,
+          hasYAxisKey: !!response.chartData.yAxisKey,
+          yAxisKey: response.chartData.yAxisKey,
           hasImages: !!response.chartData.images,
           imageDetails: response.chartData.images ? {
             main: {
@@ -97,11 +142,35 @@ export const apiLogger = {
               filename: response.chartData.images.summary_chart?.filename,
               title: response.chartData.images.summary_chart?.title
             }
-          } : 'No images'
+          } : 'No images',
+          fullChartData: response.chartData
+        });
+      } else {
+        console.log('⚠️ No chartData in response');
+      }
+      
+      // Also log sqlResults if present
+      if (response.sqlResults) {
+        console.log('📊 SQL Results in Response:', {
+          hasSqlResults: !!response.sqlResults,
+          sqlResultsType: typeof response.sqlResults,
+          sqlResultsIsArray: Array.isArray(response.sqlResults),
+          sqlResultsLength: Array.isArray(response.sqlResults) ? response.sqlResults.length : 'N/A',
+          sqlResultsSample: Array.isArray(response.sqlResults) && response.sqlResults.length > 0
+            ? response.sqlResults.slice(0, 2)
+            : response.sqlResults,
+          sqlResultsKeys: Array.isArray(response.sqlResults) && response.sqlResults.length > 0 && typeof response.sqlResults[0] === 'object'
+            ? Object.keys(response.sqlResults[0])
+            : 'N/A'
         });
       }
     }
     console.groupEnd();
+    
+    // Log to file
+    if (response) {
+      fileLogger.info('CHAT', `Conversation ${conversationId}`, { conversationId, message, response });
+    }
   }
 };
 
@@ -142,5 +211,11 @@ export const componentLogger = {
       console.log('No images in chart data');
     }
     console.groupEnd();
+    
+    // Log to file
+    fileLogger.info('CHART_DATA', componentName, { componentName, chartData });
   }
 };
+
+// Export fileLogger for use in components
+export { fileLogger };

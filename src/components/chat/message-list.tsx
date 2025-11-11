@@ -2,12 +2,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import DataTable from "@/components/ui/data-table";
 import XmRChart from "@/components/charts/xmr-chart";
+import BarChartComponent from "@/components/charts/bar-chart";
+import PieChartComponent from "@/components/charts/pie-chart";
+import LineChartComponent from "@/components/charts/line-chart";
 import UniversalChart from "@/components/charts/universal-chart";
 import ChartImageDisplay from "@/components/charts/chart-image-display";
 import ChartErrorBoundary from "@/components/charts/chart-error-boundary";
 import { Copy, Download, FileText, BarChart3, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { componentLogger } from "@/lib/logger";
+import { componentLogger, fileLogger } from "@/lib/logger";
 import type { Message } from "@/types/shared";
 import { useState } from "react";
 
@@ -32,6 +35,19 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
   messages.forEach((message, index) => {
     if (message.chartData) {
       componentLogger.chartData(`Message ${index}`, message.chartData);
+      console.log(`🔍 Message ${index} Full Structure:`, {
+        messageId: message.id,
+        role: message.role,
+        hasChartData: !!message.chartData,
+        chartDataType: message.chartData?.type,
+        chartDataLength: Array.isArray(message.chartData?.data) ? message.chartData.data.length : 'N/A',
+        hasSqlResults: !!message.sqlResults,
+        sqlResultsLength: Array.isArray(message.sqlResults) ? message.sqlResults.length : 'N/A',
+        sqlResultsSample: Array.isArray(message.sqlResults) && message.sqlResults.length > 0 
+          ? message.sqlResults.slice(0, 2) 
+          : 'N/A',
+        fullMessage: message
+      });
     }
   });
 
@@ -132,7 +148,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
     });
   };
 
-  const renderChart = (chartData: any) => {
+  const renderChart = (chartData: any, message?: Message) => {
     try {
       if (!chartData) return null;
       
@@ -198,11 +214,201 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
         return <XmRChart data={chartData.data} title={chartData.title} insights={chartData.insights} />;
       }
 
-      // Use UniversalChart for all other chart types
-      // Provide fallback for undefined/null chart types
-      const chartType = chartData.type || 'bar';
-      console.log('Using chart type:', chartType);
+      // Use specialized components for each chart type
+      // Try to determine chart type from multiple sources
+      let chartType = chartData.type;
       
+      // Normalize the initial type
+      if (chartType) {
+        chartType = String(chartType).toLowerCase().trim();
+        // If it's empty after trim, treat as missing
+        if (chartType === '') {
+          chartType = null;
+        }
+      }
+      
+      // Track if we have a valid non-default type
+      const hasValidType = chartType && chartType !== 'bar';
+      
+      // If type is missing or is the default 'bar', try to infer from image metadata (type and filename)
+      // This allows us to override a default 'bar' with the actual chart type from the image
+      if (!hasValidType) {
+        // Check image type first (most reliable)
+        if (chartData.images?.main_chart?.type) {
+          const imageType = String(chartData.images.main_chart.type).toLowerCase();
+          if (imageType.includes('line')) {
+            chartType = 'line';
+          } else if (imageType.includes('pie')) {
+            chartType = 'pie';
+          } else if (imageType.includes('xmr')) {
+            chartType = 'xmr';
+          } else if (imageType.includes('bar') && !chartType) {
+            chartType = 'bar';
+          }
+        }
+        
+        // Also check filename if type still not determined
+        if ((!chartType || chartType === 'bar') && chartData.images?.main_chart?.filename) {
+          const filename = String(chartData.images.main_chart.filename).toLowerCase();
+          if (filename.includes('line')) {
+            chartType = 'line';
+          } else if (filename.includes('pie')) {
+            chartType = 'pie';
+          } else if (filename.includes('xmr')) {
+            chartType = 'xmr';
+          } else if (filename.includes('bar') && !chartType) {
+            chartType = 'bar';
+          }
+        }
+      }
+      
+      // If still missing, try to infer from title
+      if (!chartType || chartType === 'bar') {
+        if (chartData.title) {
+          const titleLower = String(chartData.title).toLowerCase();
+          if (titleLower.includes('line chart') || titleLower.includes('trend') || titleLower.includes('line')) {
+            chartType = 'line';
+          } else if (titleLower.includes('pie chart') || titleLower.includes('pie')) {
+            chartType = 'pie';
+          } else if (titleLower.includes('bar chart') && !chartType) {
+            chartType = 'bar';
+          }
+        }
+      }
+      
+      // Default to 'bar' only if we still can't determine
+      chartType = chartType || 'bar';
+      
+      // Log the chart type determination
+      console.log('🔍 Chart type determination:', {
+        chartDataType: chartData.type,
+        imageType: chartData.images?.main_chart?.type,
+        title: chartData.title,
+        determinedType: chartType
+      });
+      fileLogger.debug('MESSAGE_LIST', 'Chart type determination', {
+        chartDataType: chartData.type,
+        imageType: chartData.images?.main_chart?.type,
+        title: chartData.title,
+        determinedType: chartType
+      });
+      const routingInfo = {
+        chartType,
+        hasData: !!chartData.data,
+        dataType: typeof chartData.data,
+        isArray: Array.isArray(chartData.data),
+        dataLength: Array.isArray(chartData.data) ? chartData.data.length : 'N/A',
+        dataSample: Array.isArray(chartData.data) && chartData.data.length > 0 
+          ? chartData.data.slice(0, 3) 
+          : chartData.data,
+        fullChartData: chartData
+      };
+      console.log('🔍 MessageList: Routing to specialized chart component', routingInfo);
+      fileLogger.debug('MESSAGE_LIST', 'Routing to specialized chart component', routingInfo);
+      
+      // Prioritize message.sqlResults over chartData.data since sqlResults is the actual query result for this message
+      // chartData.data might contain stale or incorrect data from previous queries
+      let chartDataToUse: any = null;
+      
+      // First priority: Use message.sqlResults if available (this is the actual query result)
+      if (message?.sqlResults && Array.isArray(message.sqlResults) && message.sqlResults.length > 0) {
+        console.log('✅ MessageList: Using message.sqlResults as primary data source (actual query result)');
+        fileLogger.info('MESSAGE_LIST', 'Using message.sqlResults as primary data source', { 
+          sqlResultsLength: message.sqlResults.length,
+          sqlResultsSample: message.sqlResults.slice(0, 2)
+        });
+        chartDataToUse = message.sqlResults;
+      } 
+      // Second priority: Use chartData.data if sqlResults is not available
+      else if (chartData.data && Array.isArray(chartData.data) && chartData.data.length > 0) {
+        console.log('✅ MessageList: Using chartData.data as data source (sqlResults not available)');
+        fileLogger.info('MESSAGE_LIST', 'Using chartData.data as data source', { 
+          chartDataLength: chartData.data.length,
+          chartDataSample: chartData.data.slice(0, 2)
+        });
+        chartDataToUse = chartData.data;
+      } 
+      // Fallback: Log error if no data available
+      else {
+        console.error('❌ MessageList: No data available in message.sqlResults or chartData.data');
+        fileLogger.error('MESSAGE_LIST', 'No data available in message.sqlResults or chartData.data', { 
+          chartData, 
+          hasSqlResults: !!message?.sqlResults,
+          sqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 0,
+          hasChartData: !!chartData.data,
+          chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 0
+        });
+      }
+      
+      const dataSourceInfo = {
+        chartDataToUse: chartDataToUse,
+        chartDataToUseType: typeof chartDataToUse,
+        chartDataToUseIsArray: Array.isArray(chartDataToUse),
+        chartDataToUseLength: Array.isArray(chartDataToUse) ? chartDataToUse.length : 'N/A',
+        hasMessage: !!message,
+        hasMessageSqlResults: !!message?.sqlResults,
+        messageSqlResultsType: typeof message?.sqlResults,
+        messageSqlResultsIsArray: Array.isArray(message?.sqlResults),
+        messageSqlResultsLength: Array.isArray(message?.sqlResults) ? message.sqlResults.length : 'N/A',
+        messageSqlResultsSample: Array.isArray(message?.sqlResults) && message.sqlResults.length > 0 
+          ? message.sqlResults.slice(0, 2) 
+          : 'N/A',
+        hasChartData: !!chartData.data,
+        chartDataLength: Array.isArray(chartData.data) ? chartData.data.length : 'N/A'
+      };
+      console.log('🔍 MessageList: Checking data sources', dataSourceInfo);
+      fileLogger.debug('MESSAGE_LIST', 'Checking data sources', dataSourceInfo);
+      
+      // Log what we're passing to the chart component
+      fileLogger.info('MESSAGE_LIST', `Passing data to ${chartType} chart component`, {
+        chartType,
+        dataLength: Array.isArray(chartDataToUse) ? chartDataToUse.length : 'N/A',
+        dataSample: Array.isArray(chartDataToUse) && chartDataToUse.length > 0 
+          ? chartDataToUse.slice(0, 2) 
+          : chartDataToUse,
+        xAxisKey: chartData.xAxisKey,
+        yAxisKey: chartData.yAxisKey,
+        title: chartData.title
+      });
+      
+      // Route to specialized components
+      switch (chartType) {
+        case 'bar':
+          return (
+            <BarChartComponent
+              data={chartDataToUse}
+              title={chartData.title}
+              xAxisKey={chartData.xAxisKey}
+              yAxisKey={chartData.yAxisKey}
+              insights={chartData.insights}
+            />
+          );
+        
+        case 'pie':
+          return (
+            <PieChartComponent
+              data={chartDataToUse}
+              title={chartData.title}
+              xAxisKey={chartData.xAxisKey}
+              yAxisKey={chartData.yAxisKey}
+              insights={chartData.insights}
+            />
+          );
+        
+        case 'line':
+          return (
+            <LineChartComponent
+              data={chartDataToUse}
+              title={chartData.title}
+              xAxisKey={chartData.xAxisKey}
+              yAxisKey={chartData.yAxisKey}
+              insights={chartData.insights}
+            />
+          );
+        
+        case 'table':
+        default:
+          // Fallback to UniversalChart for table or unknown types
       return (
         <UniversalChart
           data={chartData.data}
@@ -213,6 +419,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
           insights={chartData.insights}
         />
       );
+      }
     } catch (error) {
       console.error('Error rendering chart:', error);
       return (
@@ -339,7 +546,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
                     {/* Interactive Chart (Default) */}
                     {!showStaticCharts[message.id] && (
                       <ChartErrorBoundary>
-                        {renderChart(message.chartData)}
+                        {renderChart(message.chartData, message)}
                       </ChartErrorBoundary>
                     )}
 

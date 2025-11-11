@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { logWriterPlugin } from './vite-plugins/log-writer'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), logWriterPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
