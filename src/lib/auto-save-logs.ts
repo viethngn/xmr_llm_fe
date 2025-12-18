@@ -1,6 +1,7 @@
 /**
  * Auto-save logs to project folder
- * This module automatically saves logs to the logs/ folder in development mode
+ * This module provides optional log export functionality.
+ * File downloads are DISABLED by default - logs go to browser console instead.
  */
 
 import { fileLogger } from './file-logger';
@@ -40,11 +41,13 @@ export function stopAutoSaveLogs() {
   }
 }
 
-// Auto-start in development mode
-if (import.meta.env.DEV && typeof window !== 'undefined') {
-  // Start after a short delay to ensure fileLogger is initialized
-  setTimeout(() => {
-    startAutoSaveLogs(300000); // Every 5 minutes
-  }, 2000);
-}
+// Auto-save is DISABLED - logs are output to browser console instead
+// To manually export logs, use: window.fileLogger.exportAsText() in the browser console
+// To enable auto-save, uncomment the code below:
+//
+// if (import.meta.env.DEV && typeof window !== 'undefined') {
+//   setTimeout(() => {
+//     startAutoSaveLogs(300000); // Every 5 minutes
+//   }, 2000);
+// }
 
