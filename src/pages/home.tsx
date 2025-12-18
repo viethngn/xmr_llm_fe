@@ -1,20 +1,17 @@
 import { useState, useEffect } from "react";
 import ChatInterface from "@/components/chat/chat-interface";
 import ConversationSidebar from "@/components/sidebar/conversation-sidebar";
-import QueryResultsPanel from "@/components/results/query-results-panel";
 import DatabaseModal from "@/components/modals/database-modal";
 import CsvUploadModal from "@/components/modals/csv-upload-modal";
 import LoadingOverlay from "@/components/ui/loading-overlay";
 import { useDataSources } from "@/hooks/use-data-sources";
-import { Settings, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { User } from "lucide-react";
 
 export default function Home() {
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [selectedDataSourceId, setSelectedDataSourceId] = useState<number | null>(null);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
   const [showCsvUploadModal, setShowCsvUploadModal] = useState(false);
-  const [showResultsPanel, setShowResultsPanel] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
 
@@ -51,16 +48,11 @@ export default function Home() {
           )}
         </div>
         
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon">
-            <Settings className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
-              <User className="h-4 w-4 text-slate-600" />
-            </div>
-            <span className="text-sm font-medium text-slate-700">Demo User</span>
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
+            <User className="h-4 w-4 text-slate-600" />
           </div>
+          <span className="text-sm font-medium text-slate-700">Demo User</span>
         </div>
       </header>
 
@@ -84,13 +76,6 @@ export default function Home() {
           onUploadCsv={() => setShowCsvUploadModal(true)}
           onAddDatabase={() => setShowDatabaseModal(true)}
         />
-
-        {/* Results Panel */}
-        {showResultsPanel && (
-          <QueryResultsPanel 
-            onToggle={() => setShowResultsPanel(!showResultsPanel)}
-          />
-        )}
       </div>
 
       {/* Modals and Overlays */}
