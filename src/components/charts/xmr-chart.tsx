@@ -162,7 +162,15 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
           LCL_Individual: lcl,
           UCL_MovingRange: 3.27 * avgMovingRange,
           LCL_MovingRange: 0,
-          individualSignals: chartDataWithSignals.filter(d => d.isRule1Signal).map(d => d.name),
+          individualSignals: chartDataWithSignals
+            .map((d, i) => ({ ...d, index: i }))
+            .filter(d => d.isRule1Signal)
+            .map(d => ({
+              name: d.name,
+              value: d.value,
+              index: d.index,
+              type: d.value > d.UCL ? 'high' as const : 'low' as const
+            })),
           rangeSignals: [],
           dataPoints: values.length,
           validRanges: Math.max(0, values.length - 1),
@@ -189,7 +197,11 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
         rangeSignals: [],
         dataPoints: 0,
         validRanges: 0,
-        invalidRanges: 0
+        invalidRanges: 0,
+        rule1Signals: 0,
+        rule2Signals: 0,
+        rule3Signals: 0,
+        totalSignals: 0
       }
     };
   }, [data]);
@@ -200,7 +212,7 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
     UCL: stats?.UCL_Individual,
     LCL: stats?.LCL_Individual,
     centralLine: stats?.centralLine,
-    hasValidLimits: !!(stats?.UCL_Individual && stats?.LCL_Individual && stats?.centralLine),
+    hasValidLimits: stats?.UCL_Individual != null && stats?.LCL_Individual != null && stats?.centralLine != null,
     signals: {
       rule1: stats?.rule1Signals,
       rule2: stats?.rule2Signals,
@@ -211,33 +223,32 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
     chartDataSample: chartData?.slice(0, 3)
   });
 
-  // Safety check: ensure we have valid control limits and data
-  if (!stats || !stats.UCL_Individual || !stats.LCL_Individual || !stats.centralLine) {
-    console.warn('⚠️ Missing control limits, using fallback values');
-    const fallbackStats = {
-      centralLine: 0,
-      averageMovingRange: 0,
-      UCL_Individual: 0,
-      LCL_Individual: 0,
-      UCL_MovingRange: 0,
-      LCL_MovingRange: 0,
-      individualSignals: [],
-      rangeSignals: [],
-      dataPoints: 0,
-      validRanges: 0,
-      invalidRanges: 0,
-      rule1Signals: 0,
-      rule2Signals: 0,
-      rule3Signals: 0,
-      totalSignals: 0
-    };
-    return { chartData: [], stats: fallbackStats };
+  // Early return for invalid data - return null (valid JSX) instead of object
+  // Use explicit null/undefined checks since 0 is a valid control limit value
+  if (!stats || stats.UCL_Individual == null || stats.LCL_Individual == null || stats.centralLine == null) {
+    console.warn('⚠️ Missing control limits - cannot render XmR chart');
+    return (
+      <Card className="p-4 border-amber-200 bg-amber-50">
+        <div className="text-center text-amber-600">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+          <p className="text-sm font-medium">Missing Control Limits</p>
+          <p className="text-xs mt-1">Unable to calculate control limits from the provided data.</p>
+        </div>
+      </Card>
+    );
   }
 
-  // Safety check: ensure we have valid chart data
+  // Early return for empty chart data
   if (!chartData || chartData.length === 0) {
     console.warn('⚠️ No chart data available');
-    return { chartData: [], stats };
+    return (
+      <Card className="p-4 border-slate-200 bg-slate-50">
+        <div className="text-center text-slate-500">
+          <p className="text-sm font-medium">No Data Available</p>
+          <p className="text-xs mt-1">No data points available to display the XmR chart.</p>
+        </div>
+      </Card>
+    );
   }
 
   const formatValue = (value: number) => {
@@ -378,7 +389,7 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
                 stroke="#64748b"
                 fontSize={12}
                 tickFormatter={formatValue}
-                domain={['dataMin - 50000', 'dataMax + 50000']}
+                domain={[(dataMin: number) => dataMin - 50000, (dataMax: number) => dataMax + 50000]}
                 tickCount={8}
                 allowDecimals={false}
               />
@@ -395,24 +406,6 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
                   </span>
                 )}
               />
-              
-              {/* Signal Legend */}
-              <div className="absolute top-12 right-4 bg-white p-2 rounded shadow-sm border text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                    <span>Normal</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                    <span>Rule 1: Outside Limits</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                    <span>Rule 2/3: Quartile/Runs</span>
-                  </div>
-                </div>
-              </div>
               
               {/* Control Limits - Following Xmrit Manual */}
               <ReferenceLine 
@@ -483,6 +476,26 @@ export default function XmRChart({ data, title, insights = [] }: XmRChartProps) 
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        
+        {/* Signal Legend - placed outside chart for proper rendering */}
+        <div className="flex justify-end mt-2">
+          <div className="bg-slate-50 p-2 rounded border text-xs">
+            <div className="flex gap-4">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                <span>Normal</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                <span>Rule 1: Outside Limits</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                <span>Rule 2/3: Quartile/Runs</span>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 

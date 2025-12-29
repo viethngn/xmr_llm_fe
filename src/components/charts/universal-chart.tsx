@@ -555,7 +555,7 @@ export default function UniversalChart({
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-lg font-semibold text-slate-800">
-              {title || `${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart`}
+              {title || `${normalizedChartType.charAt(0).toUpperCase() + normalizedChartType.slice(1)} Chart`}
             </h4>
             <p className="text-sm text-red-600">Error rendering chart</p>
           </div>

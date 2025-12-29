@@ -91,6 +91,47 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
     return csvRows.join('\n');
   };
 
+  // Helper function to transform insights object to string array for chart components
+  const transformInsightsToStrings = (insights: any): string[] => {
+    if (!insights) return [];
+    
+    // If already an array, return as-is
+    if (Array.isArray(insights)) return insights;
+    
+    // If it's an object with ChartData.insights structure, transform to strings
+    if (typeof insights === 'object') {
+      const result: string[] = [];
+      
+      if (insights.processStable !== undefined) {
+        result.push(insights.processStable ? 'Process is stable' : 'Process shows variation');
+      }
+      
+      if (insights.outOfControlPoints && insights.outOfControlPoints.length > 0) {
+        result.push(`${insights.outOfControlPoints.length} out-of-control points detected`);
+      }
+      
+      if (insights.averageValue !== undefined) {
+        result.push(`Average value: ${insights.averageValue.toLocaleString()}`);
+      }
+      
+      if (insights.averageRange !== undefined) {
+        result.push(`Average range: ${insights.averageRange.toLocaleString()}`);
+      }
+      
+      if (insights.processCapability) {
+        result.push(`Process capability: ${insights.processCapability}`);
+      }
+      
+      if (insights.recommendations && Array.isArray(insights.recommendations)) {
+        result.push(...insights.recommendations);
+      }
+      
+      return result;
+    }
+    
+    return [];
+  };
+
   const formatMessageContent = (content: string) => {
     // Split by newlines and process each line
     const lines = content.split('\n');
@@ -242,7 +283,41 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
       // Use XmRChart for XmR charts (detected by multiple criteria)
       if (isXmRChart) {
         console.log('✅ Using XmRChart component');
-        return <XmRChart data={chartData.data} title={chartData.title} insights={chartData.insights} />;
+        
+        // Apply the same data source selection logic for XmRChart
+        // Prioritize message.sqlResults over chartData.data since sqlResults is the actual query result
+        let xmrDataToUse: any = null;
+        
+        if (message?.sqlResults && Array.isArray(message.sqlResults) && message.sqlResults.length > 0) {
+          console.log('✅ XmRChart: Using message.sqlResults as primary data source');
+          fileLogger.info('MESSAGE_LIST', 'XmRChart using message.sqlResults as primary data source', { 
+            sqlResultsLength: message.sqlResults.length 
+          });
+          xmrDataToUse = message.sqlResults;
+        } else if (chartData.data && Array.isArray(chartData.data) && chartData.data.length > 0) {
+          console.log('✅ XmRChart: Using chartData.data as data source');
+          fileLogger.info('MESSAGE_LIST', 'XmRChart using chartData.data as data source', { 
+            chartDataLength: chartData.data.length 
+          });
+          xmrDataToUse = chartData.data;
+        } else {
+          const previousData = findDataFromPreviousMessages();
+          if (previousData) {
+            console.log('✅ XmRChart: Using data from previous message');
+            fileLogger.info('MESSAGE_LIST', 'XmRChart using data from previous message', { 
+              dataLength: previousData.length 
+            });
+            xmrDataToUse = previousData;
+          }
+        }
+        
+        if (!xmrDataToUse || (Array.isArray(xmrDataToUse) && xmrDataToUse.length === 0)) {
+          console.error('❌ XmRChart: No data available - skipping render');
+          fileLogger.error('MESSAGE_LIST', 'XmRChart no data available - skipping render');
+          return null;
+        }
+        
+        return <XmRChart data={xmrDataToUse} title={chartData.title} insights={transformInsightsToStrings(chartData.insights)} />;
       }
 
       // Use specialized components for each chart type
@@ -490,7 +565,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
               title={chartData.title}
               xAxisKey={chartData.xAxisKey}
               yAxisKey={chartData.yAxisKey}
-              insights={chartData.insights}
+              insights={transformInsightsToStrings(chartData.insights)}
             />
           );
         
@@ -501,7 +576,7 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
               title={chartData.title}
               xAxisKey={chartData.xAxisKey}
               yAxisKey={chartData.yAxisKey}
-              insights={chartData.insights}
+              insights={transformInsightsToStrings(chartData.insights)}
             />
           );
         
@@ -512,23 +587,23 @@ export default function MessageList({ messages, isLoading, error }: MessageListP
               title={chartData.title}
               xAxisKey={chartData.xAxisKey}
               yAxisKey={chartData.yAxisKey}
-              insights={chartData.insights}
+              insights={transformInsightsToStrings(chartData.insights)}
             />
           );
         
         case 'table':
         default:
           // Fallback to UniversalChart for table or unknown types
-      return (
-        <UniversalChart
-          data={chartData.data}
-          chartType={chartType as 'line' | 'bar' | 'pie' | 'table'}
-          title={chartData.title}
-          xAxisKey={chartData.xAxisKey}
-          yAxisKey={chartData.yAxisKey}
-          insights={chartData.insights}
-        />
-      );
+          return (
+            <UniversalChart
+              data={chartDataToUse}
+              chartType={chartType as 'line' | 'bar' | 'pie' | 'table'}
+              title={chartData.title}
+              xAxisKey={chartData.xAxisKey}
+              yAxisKey={chartData.yAxisKey}
+              insights={transformInsightsToStrings(chartData.insights)}
+            />
+          );
       }
     } catch (error) {
       console.error('Error rendering chart:', error);

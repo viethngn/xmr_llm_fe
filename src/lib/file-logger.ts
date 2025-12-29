@@ -14,15 +14,24 @@ class FileLogger {
   private maxLogs = 1000; // Maximum logs to keep in memory
   private storageKey = 'app_logs';
   private maxStorageLogs = 500; // Maximum logs in localStorage
+  private storageIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Load logs from localStorage on initialization
     this.loadFromStorage();
     
     // Save logs to localStorage periodically
-    setInterval(() => {
+    this.storageIntervalId = setInterval(() => {
       this.saveToStorage();
     }, 5000); // Every 5 seconds
+  }
+
+  // Method to stop the periodic storage saves (useful for cleanup)
+  stopPeriodicSave() {
+    if (this.storageIntervalId !== null) {
+      clearInterval(this.storageIntervalId);
+      this.storageIntervalId = null;
+    }
   }
 
   private loadFromStorage() {
